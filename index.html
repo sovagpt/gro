@@ -60,6 +60,33 @@
             overflow-y: auto;
         }
         
+        /* Custom scrollbar styling */
+        .panel::-webkit-scrollbar,
+        .chat-area::-webkit-scrollbar,
+        .thought-stream::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .panel::-webkit-scrollbar-track,
+        .chat-area::-webkit-scrollbar-track,
+        .thought-stream::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+        
+        .panel::-webkit-scrollbar-thumb,
+        .chat-area::-webkit-scrollbar-thumb,
+        .thought-stream::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 136, 0.6);
+            border-radius: 4px;
+        }
+        
+        .panel::-webkit-scrollbar-thumb:hover,
+        .chat-area::-webkit-scrollbar-thumb:hover,
+        .thought-stream::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 255, 136, 0.8);
+        }
+        
         .nav-panel {
             display: flex;
             flex-direction: column;
@@ -109,19 +136,28 @@
         
         .message {
             margin-bottom: 10px;
-            padding: 5px;
-            border-radius: 4px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            line-height: 1.5;
         }
         
         .user-message {
-            background: rgba(0, 255, 136, 0.2);
+            background: rgba(0, 255, 136, 0.15);
             text-align: right;
+            border-left: 3px solid #00ff88;
+            margin-left: 20%;
         }
         
         .ai-message {
-            background: rgba(255, 100, 100, 0.2);
+            background: rgba(255, 100, 100, 0.15);
             border-left: 3px solid #ff6464;
-            padding-left: 10px;
+            padding-left: 15px;
+            margin-right: 20%;
+        }
+        
+        .typing-text {
+            border-right: 2px solid #ff6464;
+            animation: blink 1s infinite;
         }
         
         .input-area {
@@ -579,16 +615,18 @@
 
                 const data = await response.json();
                 
-                // Remove thinking message
+                // Remove thinking message and add response with typing effect
                 const thinkingMsg = document.getElementById('thinking-msg');
                 if (thinkingMsg) thinkingMsg.remove();
                 
-                // Add AI response
-                chatArea.innerHTML += `
-                    <div class="message ai-message">
-                        GROKPUTER: ${data.response}
-                    </div>
-                `;
+                // Create message element for typing effect
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message ai-message';
+                messageDiv.innerHTML = `GROKPUTER: <span class="typing-text" id="typing-response"></span>`;
+                chatArea.appendChild(messageDiv);
+                
+                // Type out the response
+                await typeMessage(data.response, 'typing-response');
                 
                 // Add thought about response
                 addThought(`Response generated through ${currentSection} module. Confidence level: ${Math.floor(Math.random() * 20) + 80}%`);
@@ -609,14 +647,44 @@
                 
                 const fallback = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
                 
-                chatArea.innerHTML += `
-                    <div class="message ai-message">
-                        GROKPUTER: ${fallback}
-                    </div>
-                `;
+                // Create message element for typing effect
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message ai-message';
+                messageDiv.innerHTML = `GROKPUTER: <span class="typing-text" id="typing-response-fallback"></span>`;
+                chatArea.appendChild(messageDiv);
+                
+                // Type out fallback response
+                await typeMessage(fallback, 'typing-response-fallback');
                 
                 addThought('Connection instability detected. Switching to local processing mode.');
             }
+            
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        async function typeMessage(text, elementId) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+            
+            const chatArea = document.getElementById('chat-area');
+            let currentText = '';
+            
+            for (let i = 0; i < text.length; i++) {
+                currentText += text[i];
+                element.textContent = currentText;
+                chatArea.scrollTop = chatArea.scrollHeight;
+                
+                // Variable typing speed for more natural feel
+                const delay = text[i] === ' ' ? 50 : 
+                             text[i] === '.' || text[i] === '!' || text[i] === '?' ? 150 :
+                             Math.random() * 40 + 20;
+                
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+            
+            // Remove cursor after typing is complete
+            element.classList.remove('typing-text');
+        }
             
             chatArea.scrollTop = chatArea.scrollHeight;
         }
