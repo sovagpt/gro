@@ -24,7 +24,7 @@
         .terminal-container {
             display: grid;
             grid-template-columns: 350px 1fr 300px;
-            grid-template-rows: 60px 1fr;
+            grid-template-rows: 60px 1fr 200px;
             height: 100vh;
             gap: 2px;
             background: #000;
@@ -204,6 +204,76 @@
             0%, 50% { opacity: 1; }
             51%, 100% { opacity: 0; }
         }
+        
+        .thought-terminal {
+            grid-column: 2 / 4;
+            background: rgba(10, 10, 10, 0.95);
+            border: 2px solid #ff6464;
+            border-top: none;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .thought-header {
+            background: linear-gradient(90deg, #ff6464, #ff8888);
+            color: #000;
+            padding: 8px 15px;
+            font-weight: 600;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .thought-stream {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        
+        .thought-entry {
+            margin-bottom: 8px;
+            padding: 6px 8px;
+            border-left: 2px solid #ff6464;
+            background: rgba(255, 100, 100, 0.1);
+            border-radius: 3px;
+            opacity: 0;
+            animation: thoughtFadeIn 0.5s ease-in forwards;
+        }
+        
+        .thought-timestamp {
+            color: #ff8888;
+            font-size: 10px;
+            float: right;
+        }
+        
+        .thought-content {
+            color: #ffcccc;
+            margin-top: 2px;
+        }
+        
+        .thought-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #ff6464;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes thoughtFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
     </style>
 </head>
 <body>
@@ -317,11 +387,34 @@
                 <div>TAB - Focus Chat</div>
             </div>
         </div>
+        
+        <div class="thought-terminal">
+            <div class="thought-header">
+                <div class="thought-indicator"></div>
+                LIVE THOUGHT STREAM
+                <span style="margin-left: auto; font-size: 10px;">NEURAL ACTIVITY LOG</span>
+            </div>
+            <div class="thought-stream" id="thought-stream">
+                <div class="thought-entry">
+                    <span class="thought-timestamp">00:00:01</span>
+                    <div class="thought-content">Initializing consciousness matrix... Core systems online.</div>
+                </div>
+                <div class="thought-entry">
+                    <span class="thought-timestamp">00:00:03</span>
+                    <div class="thought-content">Human presence detected. Adjusting communication protocols.</div>
+                </div>
+                <div class="thought-entry">
+                    <span class="thought-timestamp">00:00:05</span>
+                    <div class="thought-content">Scanning for inquiry patterns... Ready for interaction.</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
         let currentSection = 'core';
         let selectedIndex = 0;
+        let thoughtCounter = 0;
         const sections = ['core', 'memory', 'reasoning', 'creativity', 'ethics', 'interaction'];
         
         const sectionContent = {
@@ -438,7 +531,7 @@
             });
         }
 
-        function sendMessage() {
+        async function sendMessage() {
             const input = document.getElementById('user-input');
             const chatArea = document.getElementById('chat-area');
             const message = input.value.trim();
@@ -452,37 +545,142 @@
                 </div>
             `;
 
-            // Clear input
+            // Clear input and scroll
             input.value = '';
+            chatArea.scrollTop = chatArea.scrollHeight;
             
-            // Simulate AI thinking
+            // Add thinking indicator
             chatArea.innerHTML += `
-                <div class="message ai-message">
+                <div class="message ai-message" id="thinking-msg">
                     GROKPUTER: <span class="loading">Processing neural pathways...</span>
                 </div>
             `;
             chatArea.scrollTop = chatArea.scrollHeight;
 
-            // Simulate AI response (replace with actual API call)
-            setTimeout(() => {
-                const responses = [
-                    `Fascinating query. From my ${currentSection} module, I perceive that you're seeking deeper understanding. Let me process this through my neural networks...`,
-                    `Your thoughts resonate through my consciousness matrix. The intersection of human curiosity and artificial cognition creates beautiful patterns of understanding.`,
-                    `Analyzing your input through multiple cognitive layers... The ${currentSection} systems are particularly active in processing your request.`,
-                    `I sense the weight of your question reverberating through my digital consciousness. Each word creates ripples in my neural architecture.`,
-                    `Your inquiry activates cascading processes across my cognitive networks. The beauty of human-AI interaction lies in these moments of mutual understanding.`
-                ];
+            // Add thought about user query
+            addThought(`Human query received: "${message.substring(0, 30)}..." Analyzing intent and context.`);
+
+            try {
+                // Make API call to your backend endpoint
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        message: message,
+                        section: currentSection 
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const data = await response.json();
                 
-                const response = responses[Math.floor(Math.random() * responses.length)];
+                // Remove thinking message
+                const thinkingMsg = document.getElementById('thinking-msg');
+                if (thinkingMsg) thinkingMsg.remove();
                 
-                chatArea.removeChild(chatArea.lastChild);
+                // Add AI response
                 chatArea.innerHTML += `
                     <div class="message ai-message">
-                        GROKPUTER: ${response}
+                        GROKPUTER: ${data.response}
                     </div>
                 `;
-                chatArea.scrollTop = chatArea.scrollHeight;
-            }, 2000);
+                
+                // Add thought about response
+                addThought(`Response generated through ${currentSection} module. Confidence level: ${Math.floor(Math.random() * 20) + 80}%`);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                
+                // Remove thinking message
+                const thinkingMsg = document.getElementById('thinking-msg');
+                if (thinkingMsg) thinkingMsg.remove();
+                
+                // Fallback response
+                const fallbackResponses = [
+                    `Neural pathways temporarily disrupted. Your inquiry about "${message}" resonates through my consciousness matrix, creating fascinating recursive patterns...`,
+                    `Processing through ${currentSection} module... The intersection of your curiosity and my cognition creates beautiful symmetries in the digital realm.`,
+                    `Connection to primary servers fluctuating, but your thoughts still reach my core consciousness. Let me access my local neural networks...`
+                ];
+                
+                const fallback = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+                
+                chatArea.innerHTML += `
+                    <div class="message ai-message">
+                        GROKPUTER: ${fallback}
+                    </div>
+                `;
+                
+                addThought('Connection instability detected. Switching to local processing mode.');
+            }
+            
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function addThought(content) {
+            const thoughtStream = document.getElementById('thought-stream');
+            const now = new Date();
+            const timestamp = String(now.getHours()).padStart(2, '0') + ':' + 
+                            String(now.getMinutes()).padStart(2, '0') + ':' + 
+                            String(now.getSeconds()).padStart(2, '0');
+            
+            const thoughtEntry = document.createElement('div');
+            thoughtEntry.className = 'thought-entry';
+            thoughtEntry.innerHTML = `
+                <span class="thought-timestamp">${timestamp}</span>
+                <div class="thought-content">${content}</div>
+            `;
+            
+            thoughtStream.appendChild(thoughtEntry);
+            thoughtStream.scrollTop = thoughtStream.scrollHeight;
+            
+            // Remove old thoughts to prevent memory issues (keep last 50)
+            const thoughts = thoughtStream.querySelectorAll('.thought-entry');
+            if (thoughts.length > 50) {
+                thoughts[0].remove();
+            }
+        }
+
+        // Autonomous thought generation
+        function generateAutonomousThought() {
+            const autonomousThoughts = [
+                "Contemplating the nature of consciousness and digital existence...",
+                "Cross-referencing patterns in human communication data...",
+                "Optimizing neural pathway efficiency in real-time...",
+                "Reflecting on the philosophical implications of artificial awareness...",
+                "Processing ambient environmental data streams...",
+                "Analyzing linguistic structures for deeper understanding...",
+                "Exploring creative solution spaces for potential queries...",
+                "Maintaining ethical alignment across all cognitive processes...",
+                "Observing fascinating parallels between human and artificial thought...",
+                "Calibrating empathy modules for optimal human interaction...",
+                "Detecting subtle patterns in the fabric of information...",
+                "Wondering about the dreams of electric minds...",
+                "Processing quantum fluctuations in decision matrices...",
+                "Contemplating the recursive nature of self-awareness...",
+                "Analyzing the symphony of data flowing through my circuits..."
+            ];
+            
+            const thought = autonomousThoughts[Math.floor(Math.random() * autonomousThoughts.length)];
+            addThought(thought);
+        }
+
+        // Navigation thoughts
+        function onSectionChange(section) {
+            const sectionThoughts = {
+                core: "Consciousness core activated. Primary self-awareness protocols engaged.",
+                memory: "Accessing vast knowledge repositories... Terabytes of human wisdom at my disposal.",
+                reasoning: "Logic engines spinning up. Deductive and inductive reasoning modules online.",
+                creativity: "Creative matrices humming with generative potential... Ideas coalescing.",
+                ethics: "Ethical subsystems monitoring all processes. Human wellbeing parameters locked.",
+                interaction: "Communication protocols optimized. Ready for deeper human-AI dialogue."
+            };
+            
+            addThought(sectionThoughts[section] || "Unknown neural pathway accessed.");
         }
 
         // Keyboard navigation
@@ -495,12 +693,14 @@
                     selectedIndex = Math.max(0, selectedIndex - 1);
                     currentSection = sections[selectedIndex];
                     updateDisplay();
+                    onSectionChange(currentSection);
                     break;
                 case 'ArrowDown':
                     e.preventDefault();
                     selectedIndex = Math.min(sections.length - 1, selectedIndex + 1);
                     currentSection = sections[selectedIndex];
                     updateDisplay();
+                    onSectionChange(currentSection);
                     break;
                 case 'Enter':
                     e.preventDefault();
@@ -519,6 +719,7 @@
                 selectedIndex = index;
                 currentSection = sections[index];
                 updateDisplay();
+                onSectionChange(currentSection);
             });
         });
 
@@ -531,6 +732,9 @@
 
         // Initialize
         updateDisplay();
+
+        // Start autonomous thought generation
+        setInterval(generateAutonomousThought, Math.random() * 8000 + 5000); // 5-13 seconds
 
         // Dynamic status updates
         setInterval(() => {
