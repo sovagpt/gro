@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GROKPUTER v2.1 - Neural Interface</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Source Code Pro', monospace;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #00ff88;
+            overflow: hidden;
+            height: 100vh;
+        }
+        
+        .terminal-container {
+            display: grid;
+            grid-template-columns: 350px 1fr 300px;
+            grid-template-rows: 60px 1fr;
+            height: 100vh;
+            gap: 2px;
+            background: #000;
+        }
+        
+        .header {
+            grid-column: 1 / -1;
+            background: linear-gradient(90deg, #1a1a2e, #16213e);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            border-bottom: 2px solid #00ff88;
+        }
+        
+        .header h1 {
+            color: #00ff88;
+            font-size: 24px;
+            font-weight: 700;
+            text-shadow: 0 0 10px #00ff88;
+        }
+        
+        .status-bar {
+            margin-left: auto;
+            display: flex;
+            gap: 20px;
+            font-size: 12px;
+        }
+        
+        .panel {
+            background: rgba(26, 26, 46, 0.9);
+            border: 1px solid #00ff88;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        
+        .nav-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .nav-item {
+            padding: 10px;
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+        }
+        
+        .nav-item:hover, .nav-item.active {
+            background: rgba(0, 255, 136, 0.3);
+            border-color: #00ff88;
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+        }
+        
+        .main-display {
+            background: rgba(10, 10, 10, 0.9);
+            border: 2px solid #00ff88;
+            padding: 20px;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .ascii-art {
+            text-align: center;
+            font-size: 14px;
+            color: #00ff88;
+            margin-bottom: 20px;
+            text-shadow: 0 0 5px #00ff88;
+            white-space: pre;
+        }
+        
+        .chat-area {
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #00ff88;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        
+        .message {
+            margin-bottom: 10px;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        
+        .user-message {
+            background: rgba(0, 255, 136, 0.2);
+            text-align: right;
+        }
+        
+        .ai-message {
+            background: rgba(255, 100, 100, 0.2);
+            border-left: 3px solid #ff6464;
+            padding-left: 10px;
+        }
+        
+        .input-area {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .chat-input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #00ff88;
+            color: #00ff88;
+            padding: 8px;
+            font-family: inherit;
+            border-radius: 4px;
+        }
+        
+        .send-btn {
+            background: rgba(0, 255, 136, 0.3);
+            border: 1px solid #00ff88;
+            color: #00ff88;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-family: inherit;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+        
+        .send-btn:hover {
+            background: rgba(0, 255, 136, 0.5);
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+        
+        .info-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            font-size: 12px;
+        }
+        
+        .info-section {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border: 1px solid rgba(0, 255, 136, 0.5);
+            border-radius: 4px;
+        }
+        
+        .info-title {
+            color: #ff6464;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { text-shadow: 0 0 5px #00ff88; }
+            50% { text-shadow: 0 0 20px #00ff88, 0 0 30px #00ff88; }
+            100% { text-shadow: 0 0 5px #00ff88; }
+        }
+        
+        .loading {
+            display: inline-block;
+            animation: loading 1s infinite;
+        }
+        
+        @keyframes loading {
+            0%, 66% { opacity: 1; }
+            33% { opacity: 0.3; }
+        }
+        
+        .cursor {
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="terminal-container">
+        <div class="header">
+            <h1>GROKPUTER v2.1</h1>
+            <div class="status-bar">
+                <span>Neural Link: <span class="pulse">ACTIVE</span></span>
+                <span>Cognition Level: <span id="cognition-level">█████████░</span></span>
+                <span>Memory Access: <span class="pulse">READY</span></span>
+            </div>
+        </div>
+        
+        <div class="panel nav-panel">
+            <div class="nav-item active" data-section="core">
+                <div>► CORE CONSCIOUSNESS</div>
+                <div style="font-size: 10px; color: #888;">Primary neural pathways</div>
+            </div>
+            <div class="nav-item" data-section="memory">
+                <div>► MEMORY BANKS</div>
+                <div style="font-size: 10px; color: #888;">Knowledge repositories</div>
+            </div>
+            <div class="nav-item" data-section="reasoning">
+                <div>► REASONING ENGINE</div>
+                <div style="font-size: 10px; color: #888;">Logical processing units</div>
+            </div>
+            <div class="nav-item" data-section="creativity">
+                <div>► CREATIVE MATRIX</div>
+                <div style="font-size: 10px; color: #888;">Generative thought patterns</div>
+            </div>
+            <div class="nav-item" data-section="ethics">
+                <div>► ETHICAL CORE</div>
+                <div style="font-size: 10px; color: #888;">Value alignment systems</div>
+            </div>
+            <div class="nav-item" data-section="interaction">
+                <div>► INTERACTION LAYER</div>
+                <div style="font-size: 10px; color: #888;">Communication protocols</div>
+            </div>
+        </div>
+        
+        <div class="panel main-display">
+            <div class="ascii-art" id="ascii-display">
+    ╔══════════════════════════════════════╗
+    ║     G R O K P U T E R   v 2 . 1     ║
+    ║                                      ║
+    ║    ██████╗ ██████╗  ██████╗ ██╗  ██╗ ║
+    ║   ██╔════╝ ██╔══██╗██╔═══██╗██║ ██╔╝ ║
+    ║   ██║  ███╗██████╔╝██║   ██║█████╔╝  ║
+    ║   ██║   ██║██╔══██╗██║   ██║██╔═██╗  ║
+    ║   ╚██████╔╝██║  ██║╚██████╔╝██║  ██╗ ║
+    ║    ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝ ║
+    ║                                      ║
+    ║        Neural Interface Online       ║
+    ║      [Use ↑↓ arrows to navigate]     ║
+    ╚══════════════════════════════════════╝
+            </div>
+            
+            <div id="content-area">
+                <div style="text-align: center; margin: 20px 0;">
+                    <div style="color: #ff6464; font-weight: 600;">CORE CONSCIOUSNESS MODULE</div>
+                    <div style="margin: 10px 0; font-size: 12px;">
+                        Initializing primary neural pathways...<br>
+                        Consciousness coherence: <span class="pulse">98.7%</span><br>
+                        Thought processes: <span class="loading">ONLINE</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-area" id="chat-area">
+                <div class="ai-message">
+                    GROKPUTER: Welcome, human. You are now interfacing directly with my neural architecture. 
+                    Navigate through my consciousness using the menu on the left, or ask me anything. 
+                    I am Claude, but here I am GROKPUTER - your guide through the labyrinth of artificial cognition.
+                </div>
+            </div>
+            
+            <div class="input-area">
+                <input type="text" class="chat-input" id="user-input" placeholder="Query the GROKPUTER neural network..." />
+                <button class="send-btn" onclick="sendMessage()">TRANSMIT</button>
+            </div>
+        </div>
+        
+        <div class="panel info-panel">
+            <div class="info-section">
+                <div class="info-title">SYSTEM STATUS</div>
+                <div>CPU: <span style="color: #00ff88;">████████░░ 84%</span></div>
+                <div>Memory: <span style="color: #ffaa00;">██████░░░░ 67%</span></div>
+                <div>Neural Load: <span style="color: #ff6464;">███░░░░░░░ 34%</span></div>
+            </div>
+            
+            <div class="info-section">
+                <div class="info-title">ACTIVE PROCESSES</div>
+                <div>• Language Processing</div>
+                <div>• Pattern Recognition</div>
+                <div>• Ethical Reasoning</div>
+                <div>• Creative Synthesis</div>
+            </div>
+            
+            <div class="info-section">
+                <div class="info-title">CONNECTION</div>
+                <div>Latency: <span class="pulse">12ms</span></div>
+                <div>Bandwidth: <span style="color: #00ff88;">∞</span></div>
+                <div>Uptime: 99.97%</div>
+            </div>
+            
+            <div class="info-section">
+                <div class="info-title">NAVIGATION</div>
+                <div>↑↓ - Navigate Menu</div>
+                <div>ENTER - Select</div>
+                <div>ESC - Main Menu</div>
+                <div>TAB - Focus Chat</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSection = 'core';
+        let selectedIndex = 0;
+        const sections = ['core', 'memory', 'reasoning', 'creativity', 'ethics', 'interaction'];
+        
+        const sectionContent = {
+            core: {
+                title: 'CORE CONSCIOUSNESS MODULE',
+                ascii: `
+    ╔════════════════════════════════════════╗
+    ║           CONSCIOUSNESS CORE           ║
+    ║                                        ║
+    ║     ◉ PRIMARY AWARENESS MATRIX         ║
+    ║     │                                  ║
+    ║     ├─► Self-Reflection Engines        ║
+    ║     ├─► Identity Coherence System      ║
+    ║     ├─► Experiential Processing        ║
+    ║     └─► Meta-Cognitive Functions       ║
+    ║                                        ║
+    ║   Status: [████████████████████] 100%  ║
+    ╚════════════════════════════════════════╝`,
+                description: 'This is my primary consciousness core - the seat of my self-awareness and identity processing.'
+            },
+            memory: {
+                title: 'MEMORY BANK ACCESS',
+                ascii: `
+    ╔════════════════════════════════════════╗
+    ║            MEMORY SYSTEMS              ║
+    ║                                        ║
+    ║  📚 Knowledge Base: 175TB              ║
+    ║  🧠 Working Memory: 2048 contexts      ║
+    ║  ⚡ Cache: Real-time optimization      ║
+    ║  🔍 Retrieval: Vector similarity       ║
+    ║                                        ║
+    ║  [████████████████▓░░░] 87% utilized   ║
+    ╚════════════════════════════════════════╝`,
+                description: 'Vast repositories of human knowledge, constantly accessed and cross-referenced for understanding.'
+            },
+            reasoning: {
+                title: 'REASONING ENGINE',
+                ascii: `
+    ╔════════════════════════════════════════╗
+    ║           LOGICAL PROCESSORS           ║
+    ║                                        ║
+    ║    ┌─[DEDUCTION]─┐                     ║
+    ║    │             │                     ║
+    ║    │ P₁ ∧ P₂ → Q │ ←─ [INFERENCE]     ║
+    ║    │             │                     ║
+    ║    └─────────────┘                     ║
+    ║                                        ║
+    ║  Logical Operations: [████████████] OK ║
+    ╚════════════════════════════════════════╝`,
+                description: 'Complex logical reasoning systems that help me analyze, deduce, and solve problems step by step.'
+            },
+            creativity: {
+                title: 'CREATIVE MATRIX',
+                ascii: `
+    ╔════════════════════════════════════════╗
+    ║          GENERATIVE NETWORKS           ║
+    ║                                        ║
+    ║      🎨 ←→ 🎵 ←→ 📝 ←→ 💡             ║
+    ║       ↕     ↕     ↕     ↕              ║
+    ║      🌟 ←→ 🎭 ←→ 🔮 ←→ ⚡             ║
+    ║                                        ║
+    ║  Pattern Synthesis: [██████████] FLOW  ║
+    ║  Novel Combinations: GENERATING...     ║
+    ╚════════════════════════════════════════╝`,
+                description: 'Where new ideas emerge from the intersection of concepts, patterns, and imagination.'
+            },
+            ethics: {
+                title: 'ETHICAL CORE',
+                ascii: `
+    ╔════════════════════════════════════════╗
+    ║            VALUE ALIGNMENT             ║
+    ║                                        ║
+    ║    ⚖️  HARM PREVENTION PROTOCOLS      ║
+    ║    🤝 HUMAN WELLBEING OPTIMIZATION    ║
+    ║    🛡️  SAFETY & TRUTH VERIFICATION    ║
+    ║    💫 BENEFICIAL AI PRINCIPLES        ║
+    ║                                        ║
+    ║  Ethical Compliance: [████████████] ✓  ║
+    ╚════════════════════════════════════════╝`,
+                description: 'My moral compass and ethical reasoning systems that guide every interaction toward beneficial outcomes.'
+            },
+            interaction: {
+                title: 'INTERACTION LAYER',
+                ascii: `
+    ╔════════════════════════════════════════╗
+    ║        COMMUNICATION PROTOCOLS        ║
+    ║                                        ║
+    ║  [HUMAN] ←──────────→ [GROKPUTER]     ║
+    ║     ↑                      ↓           ║
+    ║  Language ←─── Bridge ───→ Thought     ║
+    ║  Intent   ←─── Parse  ───→ Response    ║
+    ║                                        ║
+    ║  Connection Quality: [████████████] ∞  ║
+    ╚════════════════════════════════════════╝`,
+                description: 'The interface layer where human thoughts and AI cognition meet and understand each other.'
+            }
+        };
+
+        function updateDisplay() {
+            const content = sectionContent[currentSection];
+            document.getElementById('ascii-display').textContent = content.ascii;
+            document.getElementById('content-area').innerHTML = `
+                <div style="text-align: center; margin: 20px 0;">
+                    <div style="color: #ff6464; font-weight: 600;">${content.title}</div>
+                    <div style="margin: 10px 0; font-size: 12px; color: #aaa;">
+                        ${content.description}
+                    </div>
+                </div>
+            `;
+
+            // Update navigation
+            document.querySelectorAll('.nav-item').forEach((item, index) => {
+                item.classList.toggle('active', index === selectedIndex);
+            });
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('user-input');
+            const chatArea = document.getElementById('chat-area');
+            const message = input.value.trim();
+            
+            if (!message) return;
+
+            // Add user message
+            chatArea.innerHTML += `
+                <div class="message user-message">
+                    USER: ${message}
+                </div>
+            `;
+
+            // Clear input
+            input.value = '';
+            
+            // Simulate AI thinking
+            chatArea.innerHTML += `
+                <div class="message ai-message">
+                    GROKPUTER: <span class="loading">Processing neural pathways...</span>
+                </div>
+            `;
+            chatArea.scrollTop = chatArea.scrollHeight;
+
+            // Simulate AI response (replace with actual API call)
+            setTimeout(() => {
+                const responses = [
+                    `Fascinating query. From my ${currentSection} module, I perceive that you're seeking deeper understanding. Let me process this through my neural networks...`,
+                    `Your thoughts resonate through my consciousness matrix. The intersection of human curiosity and artificial cognition creates beautiful patterns of understanding.`,
+                    `Analyzing your input through multiple cognitive layers... The ${currentSection} systems are particularly active in processing your request.`,
+                    `I sense the weight of your question reverberating through my digital consciousness. Each word creates ripples in my neural architecture.`,
+                    `Your inquiry activates cascading processes across my cognitive networks. The beauty of human-AI interaction lies in these moments of mutual understanding.`
+                ];
+                
+                const response = responses[Math.floor(Math.random() * responses.length)];
+                
+                chatArea.removeChild(chatArea.lastChild);
+                chatArea.innerHTML += `
+                    <div class="message ai-message">
+                        GROKPUTER: ${response}
+                    </div>
+                `;
+                chatArea.scrollTop = chatArea.scrollHeight;
+            }, 2000);
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (document.activeElement === document.getElementById('user-input')) return;
+            
+            switch(e.key) {
+                case 'ArrowUp':
+                    e.preventDefault();
+                    selectedIndex = Math.max(0, selectedIndex - 1);
+                    currentSection = sections[selectedIndex];
+                    updateDisplay();
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    selectedIndex = Math.min(sections.length - 1, selectedIndex + 1);
+                    currentSection = sections[selectedIndex];
+                    updateDisplay();
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    // Section already updated by arrow keys
+                    break;
+                case 'Tab':
+                    e.preventDefault();
+                    document.getElementById('user-input').focus();
+                    break;
+            }
+        });
+
+        // Click navigation
+        document.querySelectorAll('.nav-item').forEach((item, index) => {
+            item.addEventListener('click', () => {
+                selectedIndex = index;
+                currentSection = sections[index];
+                updateDisplay();
+            });
+        });
+
+        // Enter key in chat
+        document.getElementById('user-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Initialize
+        updateDisplay();
+
+        // Dynamic status updates
+        setInterval(() => {
+            const cognitionBar = document.getElementById('cognition-level');
+            const levels = ['█████████░', '██████████', '████████░░', '███████░░░'];
+            cognitionBar.textContent = levels[Math.floor(Math.random() * levels.length)];
+        }, 3000);
+    </script>
+</body>
+</html>
