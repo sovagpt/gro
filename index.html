@@ -311,6 +311,92 @@
                 transform: translateY(0);
             }
         }
+        
+        /* Matrix-style background effect */
+        .matrix-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.1;
+            pointer-events: none;
+        }
+        
+        /* Glitch effect for critical moments */
+        .glitch {
+            animation: glitch 0.3s ease-in-out;
+        }
+        
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+        
+        /* Enhance typing indicator */
+        .typing-indicator {
+            display: inline-block;
+            background: rgba(255, 100, 100, 0.3);
+            padding: 4px 8px;
+            border-radius: 12px;
+            border: 1px solid #ff6464;
+            font-size: 10px;
+            animation: pulse 1s infinite;
+        }
+        
+        /* Neural network visualization */
+        .neural-viz {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 150px;
+            height: 100px;
+            opacity: 0.3;
+            pointer-events: none;
+        }
+        
+        /* Sound indicator */
+        .sound-toggle {
+            cursor: pointer;
+            padding: 4px 8px;
+            border: 1px solid #00ff88;
+            border-radius: 4px;
+            font-size: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .sound-toggle:hover {
+            background: rgba(0, 255, 136, 0.2);
+        }
+        
+        /* Connection status */
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 10px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00ff88;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.warning {
+            background: #ffaa00;
+        }
+        
+        .status-dot.error {
+            background: #ff6464;
+        }
     </style>
 </head>
 <body>
@@ -318,9 +404,15 @@
         <div class="header">
             <h1>GROKPUTER v2.1</h1>
             <div class="status-bar">
-                <span>Neural Link: <span class="pulse">ACTIVE</span></span>
+                <div class="connection-status">
+                    <div class="status-dot" id="connection-dot"></div>
+                    <span>Neural Link: <span class="pulse">ACTIVE</span></span>
+                </div>
                 <span>Cognition Level: <span id="cognition-level">█████████░</span></span>
                 <span>Memory Access: <span class="pulse">READY</span></span>
+                <div class="sound-toggle" id="sound-toggle" title="Toggle neural audio feedback">
+                    🔊 AUDIO
+                </div>
             </div>
         </div>
         
@@ -391,6 +483,8 @@
                 <input type="text" class="chat-input" id="user-input" placeholder="Query the GROKPUTER neural network..." />
                 <button class="send-btn" onclick="sendMessage()">TRANSMIT</button>
             </div>
+            
+            <canvas class="neural-viz" id="neural-canvas"></canvas>
         </div>
         
         <div class="panel info-panel">
@@ -452,6 +546,8 @@
         let currentSection = 'core';
         let selectedIndex = 0;
         let thoughtCounter = 0;
+        let soundEnabled = true;
+        let isTyping = false;
         const sections = ['core', 'memory', 'reasoning', 'creativity', 'ethics', 'interaction'];
         
         const sectionContent = {
@@ -586,16 +682,23 @@
             input.value = '';
             chatArea.scrollTop = chatArea.scrollHeight;
             
-            // Add thinking indicator
+            // Add thinking indicator with typing status
+            const thinkingId = 'thinking-msg-' + Date.now();
             chatArea.innerHTML += `
-                <div class="message ai-message" id="thinking-msg">
+                <div class="message ai-message" id="${thinkingId}">
                     GROKPUTER: <span class="loading">Processing neural pathways...</span>
+                    <div class="typing-indicator">NEURAL ACTIVITY</div>
                 </div>
             `;
             chatArea.scrollTop = chatArea.scrollHeight;
 
             // Add thought about user query
             addThought(`Human query received: "${message.substring(0, 30)}..." Analyzing intent and context.`);
+            
+            // Play thinking sound
+            playSound('thinking');
+            isTyping = true;
+            updateConnectionStatus('processing');
 
             try {
                 // Make API call to your backend endpoint
@@ -617,7 +720,7 @@
                 const data = await response.json();
                 
                 // Remove thinking message and add response with typing effect
-                const thinkingMsg = document.getElementById('thinking-msg');
+                const thinkingMsg = document.getElementById(thinkingId);
                 if (thinkingMsg) thinkingMsg.remove();
                 
                 // Create message element for typing effect
@@ -632,12 +735,21 @@
                 // Add thought about response
                 addThought(`Response generated through ${currentSection} module. Confidence level: ${Math.floor(Math.random() * 20) + 80}%`);
                 
+                updateConnectionStatus('active');
+                isTyping = false;
+                
             } catch (error) {
                 console.error('Error:', error);
                 
                 // Remove thinking message
-                const thinkingMsg = document.getElementById('thinking-msg');
+                const thinkingMsg = document.getElementById(thinkingId);
                 if (thinkingMsg) thinkingMsg.remove();
+                
+                // Add glitch effect for errors
+                document.querySelector('.header h1').classList.add('glitch');
+                setTimeout(() => {
+                    document.querySelector('.header h1').classList.remove('glitch');
+                }, 300);
                 
                 // Fallback response
                 const fallbackResponses = [
@@ -658,6 +770,8 @@
                 await typeMessage(fallback, 'typing-response-fallback');
                 
                 addThought('Connection instability detected. Switching to local processing mode.');
+                updateConnectionStatus('warning');
+                isTyping = false;
             }
             
             chatArea.scrollTop = chatArea.scrollHeight;
@@ -685,6 +799,101 @@
             
             // Remove cursor after typing is complete
             element.classList.remove('typing-text');
+            
+            // Play completion sound
+            playSound('complete');
+        }
+
+        // Sound system
+        function playSound(type) {
+            if (!soundEnabled) return;
+            
+            // Create audio context for terminal-style sounds
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            switch(type) {
+                case 'thinking':
+                    oscillator.frequency.setValueAtTime(220, audioContext.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(440, audioContext.currentTime + 0.1);
+                    break;
+                case 'complete':
+                    oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(880, audioContext.currentTime + 0.1);
+                    break;
+                case 'navigation':
+                    oscillator.frequency.setValueAtTime(660, audioContext.currentTime);
+                    break;
+            }
+            
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+
+        // Connection status management
+        function updateConnectionStatus(status) {
+            const dot = document.getElementById('connection-dot');
+            dot.className = `status-dot ${status}`;
+        }
+
+        // Neural network visualization
+        function initNeuralViz() {
+            const canvas = document.getElementById('neural-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 150;
+            canvas.height = 100;
+            
+            const nodes = [];
+            for (let i = 0; i < 12; i++) {
+                nodes.push({
+                    x: Math.random() * 150,
+                    y: Math.random() * 100,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5
+                });
+            }
+            
+            function animate() {
+                ctx.clearRect(0, 0, 150, 100);
+                ctx.strokeStyle = '#00ff88';
+                ctx.fillStyle = '#00ff88';
+                ctx.globalAlpha = 0.6;
+                
+                // Update and draw nodes
+                nodes.forEach((node, i) => {
+                    node.x += node.vx;
+                    node.y += node.vy;
+                    
+                    if (node.x < 0 || node.x > 150) node.vx *= -1;
+                    if (node.y < 0 || node.y > 100) node.vy *= -1;
+                    
+                    ctx.beginPath();
+                    ctx.arc(node.x, node.y, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Draw connections
+                    nodes.slice(i + 1).forEach(other => {
+                        const dist = Math.sqrt((node.x - other.x) ** 2 + (node.y - other.y) ** 2);
+                        if (dist < 50) {
+                            ctx.beginPath();
+                            ctx.moveTo(node.x, node.y);
+                            ctx.lineTo(other.x, other.y);
+                            ctx.globalAlpha = (50 - dist) / 50 * 0.3;
+                            ctx.stroke();
+                        }
+                    });
+                });
+                
+                requestAnimationFrame(animate);
+            }
+            animate();
         }
 
         function addThought(content) {
@@ -760,6 +969,7 @@
                     currentSection = sections[selectedIndex];
                     updateDisplay();
                     onSectionChange(currentSection);
+                    playSound('navigation');
                     break;
                 case 'ArrowDown':
                     e.preventDefault();
@@ -767,6 +977,7 @@
                     currentSection = sections[selectedIndex];
                     updateDisplay();
                     onSectionChange(currentSection);
+                    playSound('navigation');
                     break;
                 case 'Enter':
                     e.preventDefault();
@@ -786,7 +997,16 @@
                 currentSection = sections[index];
                 updateDisplay();
                 onSectionChange(currentSection);
+                playSound('navigation');
             });
+        });
+
+        // Sound toggle
+        document.getElementById('sound-toggle').addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            const toggle = document.getElementById('sound-toggle');
+            toggle.textContent = soundEnabled ? '🔊 AUDIO' : '🔇 MUTED';
+            toggle.style.opacity = soundEnabled ? '1' : '0.5';
         });
 
         // Enter key in chat
@@ -798,6 +1018,7 @@
 
         // Initialize
         updateDisplay();
+        initNeuralViz();
 
         // Start autonomous thought generation
         setInterval(generateAutonomousThought, Math.random() * 8000 + 5000); // 5-13 seconds
@@ -807,6 +1028,12 @@
             const cognitionBar = document.getElementById('cognition-level');
             const levels = ['█████████░', '██████████', '████████░░', '███████░░░'];
             cognitionBar.textContent = levels[Math.floor(Math.random() * levels.length)];
+            
+            // Randomly update connection status when not processing
+            if (!isTyping && Math.random() < 0.1) {
+                const statuses = ['active', 'active', 'active', 'warning'];
+                updateConnectionStatus(statuses[Math.floor(Math.random() * statuses.length)]);
+            }
         }, 3000);
     </script>
 </body>
